@@ -2,14 +2,30 @@ from langchain.schema.language_model import BaseLanguageModel
 from langchain.callbacks.base import BaseCallbackManager
 from langchain.chains.combine_documents.base import BaseCombineDocumentsChain
 from typing import Any, Optional
-from langchain.chains.question_answering import _load_map_reduce_chain
+from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
+from langchain.chains.qa_with_sources import load_qa_with_sources_chain
+from langchain.output_parsers import PydanticOutputParser
+from core.output_parser import StructualInquiryLetter
 
-question_prompt_template = """你是一个分析财务报表的专家: {question}
+
+question_prompt_template = """你是一个分析财务报表的专家,请回答我以下问题:
+ {question}
+------
 ```{context}```
+------
+{format_instructions}
 """
+
+
+output_parser = PydanticOutputParser(pydantic_object=StructualInquiryLetter)  # 用于对输出格式化
+format_instructions = output_parser.get_format_instructions()  # 用于对格式化prompt
+
 QUESTION_PROMPT = PromptTemplate(
-    template=question_prompt_template, input_variables=["context", "question"]
+    template=question_prompt_template, 
+    input_variables=["context", "question"],
+    partial_variables={"format_instructions":format_instructions}
+
 )
 
 combine_prompt_template = """请以以下格式回答问题
@@ -36,22 +52,52 @@ _load_map_reduce_chain 函数，该函数专门设计用于构建基于映射/�
 load_qa_chain 的函数，它负责加载一个基于映射/归约策略的问答链。这种策略涉及到将大型问题分解为较小的子问题，
 解决每一个子问题，然后合并所有子问题的答案以获得整体答案。
 """
-def load_qa_chain(
+def load_chain(
         llm: BaseLanguageModel,
+        chain_type: str = "stuff",
         verbose: Optional[bool] = None,
         callback_manager: Optional[BaseCallbackManager] = None,
         **kwargs: Any,
 ) -> BaseCombineDocumentsChain:
-    return _load_map_reduce_chain(
-        llm,
-        verbose=verbose,
-        question_prompt=QUESTION_PROMPT,
-        combine_prompt=COMBINE_PROMPT,
-        callback_manager=callback_manager, **kwargs
-    )
+    # chain = load_qa_chain(
+    #      llm: BaseLanguageModel,
+    #     chain_type=chain_type,
+    #     verbose: Optional[bool] = None,
+    #     callback_manager: Optional[BaseCallbackManager] = None,
+    #     **kwargs: Any,
+    # )
 
+    if chain_type == "stuff":
+        return load_qa_chain(
+            llm=llm,
+            chain_type=chain_type,
+            verbose=verbose,        
+            prompt=QUESTION_PROMPT,
+            callback_manager=callback_manager, **kwargs
+        )
+    elif chain_type == "map_reduce":
+        return load_qa_chain(
+            llm=llm,
+            chain_type=chain_type,
+            verbose=verbose,        
+            question_prompt=QUESTION_PROMPT,
+            combine_prompt=COMBINE_PROMPT,
+            callback_manager=callback_manager, **kwargs
+        )
 
-
-
+# def load_chain(
+#         llm: BaseLanguageModel,
+#         chain_type: str = "stuff",
+#         verbose: Optional[bool] = None,
+#         callback_manager: Optional[BaseCallbackManager] = None,
+#         **kwargs: Any,
+# ) -> BaseCombineDocumentsChain:
+    
+#     return load_qa_with_sources_chain(
+#         llm=llm,
+#         chain_type=chain_type,
+#         verbose=verbose,        
+#         callback_manager=callback_manager, **kwargs
+#     )
 
 

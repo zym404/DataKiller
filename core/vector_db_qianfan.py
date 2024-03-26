@@ -24,7 +24,7 @@ VectorCollectionName = "Inquiry_letter_1"
 # emb = QianfanEmbeddingsEndpoint(model="bge_large_zh", endpoint="bge_large_zh")
 emb = QianfanEmbeddingsEndpoint(model="bge-large-zh")
 
-def get_all_sub_path(source_dir: str, filter_file: str = ""):
+def get_all_sub_path(source_dir: str = "./docs/", filter_file: str = ""):
     """
     :param source_dir:起始目录
     :param filter_file:取某个后缀的文件，如果没指定则全部都返回
@@ -42,6 +42,14 @@ def get_all_sub_path(source_dir: str, filter_file: str = ""):
                 path_list.append(p)
 
     return path_list
+
+def get_all_file_name(source_dir: str = "./docs/"):
+    pdf_files = []
+    for root, dirs, files in os.walk(source_dir):
+        for file in files:
+            if file.endswith('.pdf'):
+                pdf_files.append(file.replace('.pdf',''))
+    return pdf_files
 
 
 def create_embeddings(documents: List[Document], collection_name: str = VectorCollectionName):
@@ -91,6 +99,15 @@ def init_vector_store(collection_name: str = VectorCollectionName):
     return create_embeddings(documents, collection_name)
 
 
+def return_raw_file():
+
+    # pdf
+    pdfFiles = get_all_sub_path(DocumentPath, ".pdf")
+    print(f"------->>>>>> pdf files {len(pdfFiles)} documents")
+    documents = PdfEngine.return_raw_file(pdfFiles)
+    print(f"------->>>>>> pdf generate {len(documents)} documents")
+
+    return documents
 # 未使用
 def test_langchain_chunking(docs_path, splitters, chunk_size, chunk_overlap, drop_collection=True):
     loader = UnstructuredMarkdownLoader(DocumentPath)

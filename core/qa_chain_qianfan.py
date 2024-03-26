@@ -2,8 +2,8 @@ import langchain
 import logging
 import json
 import os
-from core.core_chain import load_qa_chain
-from core.vector_db_qianfan import get_vector_store, VectorCollectionName
+from core.core_chain import load_chain
+from core.vector_db_qianfan import get_vector_store, VectorCollectionName,return_raw_file,get_all_file_name
 from langchain_community.llms.chatglm3 import ChatGLM3
 from langchain.agents.agent_toolkits import SQLDatabaseToolkit
 from langchain.prompts import SystemMessagePromptTemplate, HumanMessagePromptTemplate, ChatPromptTemplate
@@ -15,6 +15,8 @@ from langchain_community.embeddings import QianfanEmbeddingsEndpoint
 from langchain_community.llms.baidu_qianfan_endpoint import QianfanLLMEndpoint
 from langchain_community.chat_models.baidu_qianfan_endpoint import QianfanChatEndpoint
 from langchain_community.chat_models import QianfanChatEndpoint
+from PyPDF2 import PdfReader
+
 # 设置日志
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
@@ -25,9 +27,10 @@ os.environ["QIANFAN_SK"] = "1G5RdeXf9RdIjj6bzeF4A1udqT8jTEPl"
 
 vector_db = get_vector_store(collection_name=VectorCollectionName)
 
+
 QianfanLLM = QianfanLLMEndpoint(
-    model="ERNIE-Bot",
-    temperature=0.0
+    model="ERNIE-Speed-128k",
+    temperature=0.1
     )
 
 class DocChatter(object):
@@ -40,18 +43,37 @@ class DocChatter(object):
         logging.info(f"Debug mode set to {'enabled' if is_enable else 'disabled'}.")
 
     @classmethod
+    def StructualQuery(cls, query: str, filename=None,):
+        logging.debug(f"Executing StructualQuery with query: {query} and filename: {filename}")
+        doc_list = return_raw_file()
+        filename_list = get_all_file_name()
+        llm = QianfanLLM
+        nchain = load_chain(llm=llm, verbose=cls.enable_debug)
+        for i in range(len(doc_list)):
+            doc = doc_list[i]
+            real = nchain({"input_documents": doc, "question": query.format(inquiry_letter=filename_list[i]) + " 用中文回答，并且输出内容来源。"},
+                        return_only_outputs=cls.enable_debug)
+            txt = real["output_text"]
+            # output = json.loads(txt[txt.index('{'):-3].replace('\n',''))
+        print("使用向量数据库+千帆线上模型")
+        print(real["output_text"])
+        return real["output_text"]
+    
+    @classmethod
     def GptRagQuery(cls, top_n: int, query: str):
         logging.debug(f"Executing GptRagQuery with query: {query} and top_n: {top_n}")
         # 查询相似度向量库
-        docs = vector_db.similarity_search(query=query, k=4)
+        # docs = vector_db.similarity_search(query=query, k=4)
+        docs = return_raw_file()[0]
         print(len(docs))
         if len(docs) == 0:
             return print("没有找到相关的文档")
         logging.debug(f"Retrieved top {top_n} documents for query.")
         print('foun oucumnt' + query)
         llm = QianfanLLM
-        nchain = load_qa_chain(llm=llm, return_map_steps=cls.enable_debug, verbose=cls.enable_debug)
-        real = nchain({"input_documents": docs, "question": query + " 用中文回答，并且输出内容来源。"},
+        nchain = load_chain(llm=llm, verbose=cls.enable_debug)
+        # nchain = qa_chain(llm=llm, return_map_steps=cls.enable_debug, verbose=cls.enable_debug)
+        real = nchain({"input_documents": docs, "question": query + " 用中文回答"},
                       return_only_outputs=cls.enable_debug)
         print("使用向量数据库+千帆线上模型")
         print(real["output_text"])
@@ -69,7 +91,6 @@ class DocChatter(object):
         print("使用向量数据库直接查找")
         logging.debug(f"Retrieved top {top_n} documents for query.")
         return docs[0]
-
 
 
 # DocChatter.VectorQuery(top_n=6,query='贵人鸟是什么')
