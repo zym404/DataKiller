@@ -43,8 +43,9 @@ def get_all_sub_path(source_dir: str = "./docs/", filter_file: str = ""):
 
     return path_list
 
-def get_all_file_name(source_dir: str = "./docs/"):
+def get_all_file_name(doc_type='问询函',source_dir: str = "./docs/"):
     pdf_files = []
+    source_dir += doc_type
     for root, dirs, files in os.walk(source_dir):
         for file in files:
             if file.endswith('.pdf'):
@@ -99,10 +100,9 @@ def init_vector_store(collection_name: str = VectorCollectionName):
     return create_embeddings(documents, collection_name)
 
 
-def return_raw_file():
-
+def return_raw_file(doc_type='问询函'):
     # pdf
-    pdfFiles = get_all_sub_path(DocumentPath, ".pdf")
+    pdfFiles = get_all_sub_path(DocumentPath + doc_type + '//', ".pdf")
     print(f"------->>>>>> pdf files {len(pdfFiles)} documents")
     documents = PdfEngine.return_raw_file(pdfFiles)
     print(f"------->>>>>> pdf generate {len(documents)} documents")

@@ -1,6 +1,8 @@
 import langchain
 import logging
 import json
+import pandas as pd
+import re
 import os
 from core.core_chain import load_chain
 from core.vector_db_qianfan import get_vector_store, VectorCollectionName,return_raw_file,get_all_file_name
@@ -27,10 +29,19 @@ os.environ["QIANFAN_SK"] = "1G5RdeXf9RdIjj6bzeF4A1udqT8jTEPl"
 
 vector_db = get_vector_store(collection_name=VectorCollectionName)
 
+# import qianfan
+# qianfan.ChatCompletion().models()
 
+
+# QianfanLLM = QianfanLLMEndpoint(
+#     model="ERNIE-Speed-128k",
+#     temperature=0.1,
+#     )
+
+# 效果比ERNIE-Speed-128k好，但很容易出现超token的情况
 QianfanLLM = QianfanLLMEndpoint(
-    model="ERNIE-Speed-128k",
-    temperature=0.1
+    model="ERNIE-3.5-8K",
+    temperature=0.1,
     )
 
 class DocChatter(object):
@@ -43,21 +54,34 @@ class DocChatter(object):
         logging.info(f"Debug mode set to {'enabled' if is_enable else 'disabled'}.")
 
     @classmethod
-    def StructualQuery(cls, query: str, filename=None,):
-        logging.debug(f"Executing StructualQuery with query: {query} and filename: {filename}")
-        doc_list = return_raw_file()
+    def StructualQuery(cls, query: str):
+        # LLM调用有限制，一分钟内token不能超过某一个数量，要么sleep一段时间，要么分批跑
+        doc_list = return_raw_file('问询函')
         filename_list = get_all_file_name()
         llm = QianfanLLM
         nchain = load_chain(llm=llm, verbose=cls.enable_debug)
+        output = ''
+        df = pd.DataFrame()
         for i in range(len(doc_list)):
             doc = doc_list[i]
-            real = nchain({"input_documents": doc, "question": query.format(inquiry_letter=filename_list[i]) + " 用中文回答，并且输出内容来源。"},
+            _query = query.format(inquiry_letter=filename_list[i])
+            logging.debug(f"Executing StructualQuery with query: {_query} and filename: {filename_list[i]}")
+
+            real = nchain({"input_documents": doc, "question": _query + " 用中文回答，并且输出内容来源。"},
                         return_only_outputs=cls.enable_debug)
             txt = real["output_text"]
-            # output = json.loads(txt[txt.index('{'):-3].replace('\n',''))
+            output += txt
+            try:
+                matches = re.findall(r'```json(.*?)```',txt , re.DOTALL)[0].replace('\n','')
+                
+                df_tmp = pd.DataFrame(json.loads(matches)['列表'])
+                df = pd.concat([df,df_tmp],ignore_index=True)
+            except:
+                pass
+
         print("使用向量数据库+千帆线上模型")
-        print(real["output_text"])
-        return real["output_text"]
+        print(output)
+        return df
     
     @classmethod
     def GptRagQuery(cls, top_n: int, query: str):
