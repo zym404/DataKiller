@@ -1,10 +1,9 @@
 import langchain
 import logging
-import json
 import pandas as pd
-import re
 import os
 from core.core_chain import load_chain
+from core.output_format_conversion import Json2DataFrame_InquryLetter
 from core.vector_db_qianfan import get_vector_store, VectorCollectionName,return_raw_file,get_all_file_name
 from langchain_community.llms.chatglm3 import ChatGLM3
 from langchain.agents.agent_toolkits import SQLDatabaseToolkit
@@ -18,6 +17,7 @@ from langchain_community.llms.baidu_qianfan_endpoint import QianfanLLMEndpoint
 from langchain_community.chat_models.baidu_qianfan_endpoint import QianfanChatEndpoint
 from langchain_community.chat_models import QianfanChatEndpoint
 from PyPDF2 import PdfReader
+import time
 
 # 设置日志
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -32,17 +32,16 @@ vector_db = get_vector_store(collection_name=VectorCollectionName)
 # import qianfan
 # qianfan.ChatCompletion().models()
 
-
-# QianfanLLM = QianfanLLMEndpoint(
-#     model="ERNIE-Speed-128k",
-#     temperature=0.1,
-#     )
-
-# 效果比ERNIE-Speed-128k好，但很容易出现超token的情况
 QianfanLLM = QianfanLLMEndpoint(
-    model="ERNIE-3.5-8K",
+    model="ERNIE-Speed-128k",
     temperature=0.1,
     )
+
+# # 效果比ERNIE-Speed-128k好，但很容易出现超token的情况
+# QianfanLLM = QianfanLLMEndpoint(
+#     model="ERNIE-3.5-8K",
+#     temperature=0.1,
+#     )
 
 class DocChatter(object):
     enable_debug = True
@@ -54,12 +53,13 @@ class DocChatter(object):
         logging.info(f"Debug mode set to {'enabled' if is_enable else 'disabled'}.")
 
     @classmethod
-    def StructualQuery(cls, query: str):
+    def StructualQuery(cls, query: str, factor=False):
         # LLM调用有限制，一分钟内token不能超过某一个数量，要么sleep一段时间，要么分批跑
         doc_list = return_raw_file('问询函')
         filename_list = get_all_file_name()
         llm = QianfanLLM
-        nchain = load_chain(llm=llm, verbose=cls.enable_debug)
+        struc_chain = load_chain(llm=llm,chain_type='stuff', verbose=cls.enable_debug)
+        label_chain = load_chain(llm=llm,chain_type='label', verbose=cls.enable_debug)
         output = ''
         df = pd.DataFrame()
         for i in range(len(doc_list)):
@@ -67,18 +67,22 @@ class DocChatter(object):
             _query = query.format(inquiry_letter=filename_list[i])
             logging.debug(f"Executing StructualQuery with query: {_query} and filename: {filename_list[i]}")
 
-            real = nchain({"input_documents": doc, "question": _query + " 用中文回答，并且输出内容来源。"},
+            real = struc_chain({"input_documents": doc, "question": _query},
                         return_only_outputs=cls.enable_debug)
             txt = real["output_text"]
             output += txt
+            # df_tmp = Json2DataFrame_InquryLetter(txt)
+            # df = pd.concat([df,df_tmp],ignore_index=True)
             try:
-                matches = re.findall(r'```json(.*?)```',txt , re.DOTALL)[0].replace('\n','')
-                
-                df_tmp = pd.DataFrame(json.loads(matches)['列表'])
+                df_tmp = Json2DataFrame_InquryLetter(txt)
                 df = pd.concat([df,df_tmp],ignore_index=True)
             except:
                 pass
-
+            # if factor:
+            #     real = label_chain({"input_documents": df_tmp.to_json(orient='records',force_ascii=False), 
+            #                         "question": f"这是{filename_list[i]}的格式化Json文本"},
+            #             return_only_outputs=cls.enable_debug)
+            time.sleep(20)
         print("使用向量数据库+千帆线上模型")
         print(output)
         return df
