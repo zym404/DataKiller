@@ -3,11 +3,11 @@ os.chdir('DataKiller')
 from core.qa_chain_qianfan import DocChatter
 
 
-query = '''
+query_1 = '''
 证券交易所问询函的结构为总分结构：先总述一个"大的问询事项"，再分述"需要公司说明的监管问题"。在每个"监管问题"中，先总述"监管问题的背景"，再分述每个问题"需要问询公司的具体方面"
 以下文本是{inquiry_letter}，你需要将问询函按照"监管问题"字段整理成json的格式输出，json对象的数量和监管问题的数量保持一致
 下面是你要做的步骤
-0. 创建一个json对象，必须有这些字段:监管问题、监管问题背景、需要问询公司的具体方面、问询函主题、问询机构、函件类别、公司名称、证券代码、公告日期。
+0. 创建一个json对象，必须有这些字段: 监管问题、监管问题背景、需要问询公司的具体方面、问询函主题、问询机构、函件类别、公司名称、证券代码、公告日期。
 1. 总结一下**整个文本**的主旨概要，存入"问询函主题"字段
 2. 将函件按照问询函结构拆分成两部：大的问询事项和需要公司说明的监管问题
 3. 总结大的问询事项的主要内容，存入"监管问题"字段
@@ -22,8 +22,28 @@ query = '''
 Think step by step
 '''
 
-# txt = DocChatter.GptRagQuery(top_n=5,query=query)   
-df = DocChatter.StructualQuery(query=query)
+# query_2 = '''
+# 经格式化整理后输出的Json问询函文本，你下面要做：
+# 1. 计算Json文本中对象数量，记为x
+# 2. 根据文本中每条记录的"监管问题背景"和"需要问询公司的具体方面"字段，判断每个监管问题类型
+# 3. 如果无法判断，就输出"其他"
+# 4. 输出x条"编号"和"监管问题类型"记录，**输出的顺序和Json文本中每条记录排列的顺序一致**
 
-df.to_excel('test.xlsx')
+# '''
+
+query_2 = '''
+经格式化整理后输出的Json问询函文本，你下面要做：
+1. 遍历Json文本中的每个对象
+2. 对每个对象，根据"监管问题背景"和"需要问询公司的具体方面"关键字，判断监管问题类型，保存入"监管问题类型"关键字
+3. 把"监管问题类型"键值对添加入对象中，生成一个新的对象，并替换原来的对象
+4. 遍历完成后，输出新的Json文本
+
+'''
+
+# txt = DocChatter.GptRagQuery(top_n=5,query=query)   
+df = DocChatter.StructualInqueryLetter(query=query_1)
+df_1 = DocChatter.TaggingInqery(query=query_2,df_context=df)
+
+df_1.to_excel('test.xlsx')
+
 

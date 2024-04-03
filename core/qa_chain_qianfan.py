@@ -37,6 +37,7 @@ QianfanLLM = QianfanLLMEndpoint(
     temperature=0.1,
     )
 
+
 # # 效果比ERNIE-Speed-128k好，但很容易出现超token的情况
 # QianfanLLM = QianfanLLMEndpoint(
 #     model="ERNIE-3.5-8K",
@@ -53,36 +54,46 @@ class DocChatter(object):
         logging.info(f"Debug mode set to {'enabled' if is_enable else 'disabled'}.")
 
     @classmethod
-    def StructualQuery(cls, query: str, factor=False):
+    def StructualInqueryLetter(cls, query: str) -> pd.DataFrame:
         # LLM调用有限制，一分钟内token不能超过某一个数量，要么sleep一段时间，要么分批跑
         doc_list = return_raw_file('问询函')
         filename_list = get_all_file_name()
         llm = QianfanLLM
         struc_chain = load_chain(llm=llm,chain_type='stuff', verbose=cls.enable_debug)
-        label_chain = load_chain(llm=llm,chain_type='label', verbose=cls.enable_debug)
         output = ''
         df = pd.DataFrame()
         for i in range(len(doc_list)):
             doc = doc_list[i]
             _query = query.format(inquiry_letter=filename_list[i])
-            logging.debug(f"Executing StructualQuery with query: {_query} and filename: {filename_list[i]}")
+            logging.debug(f"Executing StructualInqueryLetter with query: {_query} and filename: {filename_list[i]}")
 
-            real = struc_chain({"input_documents": doc, "question": _query},
+            chain = struc_chain({"input_documents": doc, "question": _query},
                         return_only_outputs=cls.enable_debug)
-            txt = real["output_text"]
+            txt = chain["output_text"]
             output += txt
-            # df_tmp = Json2DataFrame_InquryLetter(txt)
-            # df = pd.concat([df,df_tmp],ignore_index=True)
             try:
                 df_tmp = Json2DataFrame_InquryLetter(txt)
                 df = pd.concat([df,df_tmp],ignore_index=True)
             except:
                 pass
-            # if factor:
-            #     real = label_chain({"input_documents": df_tmp.to_json(orient='records',force_ascii=False), 
-            #                         "question": f"这是{filename_list[i]}的格式化Json文本"},
-            #             return_only_outputs=cls.enable_debug)
-            time.sleep(20)
+            time.sleep(80)
+        print("使用向量数据库+千帆线上模型")
+        print(output)
+        return df
+    
+    @classmethod
+    def TaggingInqery(cls, query: str, df_context: pd.DataFrame):
+        '''
+        使用StructualInqueryLetter返回的DataFrame作为输入，判断每一条记录的监管问题类型
+        '''
+        context = df_context.to_json(orient='records',force_ascii=False)
+        llm = QianfanLLM
+        label_chain = load_chain(llm=llm,chain_type='label')
+        df = df_context
+        chain = label_chain
+        output = chain.invoke({"question":query,"context":context})
+        df_tmp = pd.DataFrame(output)
+        df = pd.concat([df,df_tmp],axis=1)
         print("使用向量数据库+千帆线上模型")
         print(output)
         return df
@@ -91,16 +102,16 @@ class DocChatter(object):
     def GptRagQuery(cls, top_n: int, query: str):
         logging.debug(f"Executing GptRagQuery with query: {query} and top_n: {top_n}")
         # 查询相似度向量库
-        # docs = vector_db.similarity_search(query=query, k=4)
-        docs = return_raw_file()[0]
+        docs = vector_db.similarity_search(query=query, k=4)
+        docs = return_raw_file()
         print(len(docs))
         if len(docs) == 0:
             return print("没有找到相关的文档")
         logging.debug(f"Retrieved top {top_n} documents for query.")
         print('foun oucumnt' + query)
         llm = QianfanLLM
-        nchain = load_chain(llm=llm, verbose=cls.enable_debug)
-        # nchain = qa_chain(llm=llm, return_map_steps=cls.enable_debug, verbose=cls.enable_debug)
+        nchain = load_chain(llm=llm, chain_type ="map_reduce",
+                            return_map_steps=cls.enable_debug, verbose=cls.enable_debug)
         real = nchain({"input_documents": docs, "question": query + " 用中文回答"},
                       return_only_outputs=cls.enable_debug)
         print("使用向量数据库+千帆线上模型")
@@ -110,7 +121,6 @@ class DocChatter(object):
     @classmethod
     def VectorQuery(cls, top_n: int, query: str):
         logging.debug(f"Executing VectorQuery with query: {query} and top_n: {top_n}")
-
         # 查询相似度向量库
         docs = vector_db.similarity_search(query=query, k=1)
         print(len(docs))
