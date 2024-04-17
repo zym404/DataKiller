@@ -1,28 +1,17 @@
-import openai
-from langchain_community.llms import QianfanLLMEndpoint
 import os
-from langchain.vectorstores import Milvus
-from langchain.document_loaders.markdown import UnstructuredMarkdownLoader
-from langchain.text_splitter import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
-from langchain.retrievers.self_query.base import SelfQueryRetriever
-from langchain.chains.query_constructor.base import AttributeInfo
-from langchain.text_splitter import MarkdownHeaderTextSplitter
-from core.markdown_splitter import MarkdownHeaderSplitter
+from core.model_config import EMB
+from langchain_community.vectorstores import Milvus
 from core.pdf_splitter import PdfEngine
-from langchain_community.embeddings import QianfanEmbeddingsEndpoint
 from typing import List
 from langchain.docstore.document import Document
 
-os.environ["QIANFAN_AK"] = "gKMOfVu47gp3BMMUJb8EPpfG"
-os.environ["QIANFAN_SK"] = "1G5RdeXf9RdIjj6bzeF4A1udqT8jTEPl"
-
-DocumentPath = "./docs/"
-VectorDbHost = "localhost"
-VectorDbPort = "19530"
+# 配置Milvus向量数据库
+DocumentPath = "./docs/" # 本地知识库地址
+VectorDbHost = "localhost" # 向量数据库的host，如果本地部署为localhost
+VectorDbPort = "19530" # Milvus的端口，默认为19530
 VectorCollectionName = "Inquiry_letter_1"
 
-# emb = QianfanEmbeddingsEndpoint(model="bge_large_zh", endpoint="bge_large_zh")
-emb = QianfanEmbeddingsEndpoint(model="bge-large-zh")
+
 
 def get_all_sub_path(source_dir: str = "./docs/", filter_file: str = ""):
     """
@@ -54,8 +43,7 @@ def get_all_file_name(doc_type='问询函',source_dir: str = "./docs/"):
 
 
 def create_embeddings(documents: List[Document], collection_name: str = VectorCollectionName):
-    embeddings = emb
-
+    embeddings = EMB
 
     vector_db = Milvus.from_documents(
         documents,
@@ -75,7 +63,7 @@ def incr_embeddings(documents: List[Document]):
 # 传入向量数据集的名字，返回对应的数据集
 # 以"ragpdf"为例，返回应该是向量数据库服务器上对应的"ragpdf"向量库
 def get_vector_store(collection_name: str = VectorCollectionName):
-    embedding = emb  # Connect to a milvus instance on localhost
+    embedding = EMB  # Connect to a milvus instance on localhost
     milvus_store = Milvus(
         embedding_function=embedding,
         collection_name=collection_name,
@@ -84,15 +72,9 @@ def get_vector_store(collection_name: str = VectorCollectionName):
     return milvus_store
 
 
-def init_vector_store(collection_name: str = VectorCollectionName):
-    # markdown
-    markdownFiles = get_all_sub_path(DocumentPath, ".md")
-    print(f"------->>>>>> markdown files {len(markdownFiles)} documents")
-    documents = MarkdownHeaderSplitter.batch_split(markdownFiles)
-    print(f"------->>>>>> markdown generate {len(documents)} documents")
+def create_vector_store(file_type: str, collection_name: str = VectorCollectionName,):
 
-    # pdf
-    pdfFiles = get_all_sub_path(DocumentPath, ".pdf")
+    pdfFiles = get_all_sub_path(DocumentPath + file_type + '//', ".pdf")
     print(f"------->>>>>> pdf files {len(pdfFiles)} documents")
     documents = PdfEngine.batch_split(pdfFiles)
     print(f"------->>>>>> pdf generate {len(documents)} documents")
@@ -100,53 +82,14 @@ def init_vector_store(collection_name: str = VectorCollectionName):
     return create_embeddings(documents, collection_name)
 
 
-def return_raw_file(doc_type='问询函'):
+def return_raw_file(file_type):
     # pdf
-    pdfFiles = get_all_sub_path(DocumentPath + doc_type + '//', ".pdf")
+    pdfFiles = get_all_sub_path(DocumentPath + file_type + '//', ".pdf")
     print(f"------->>>>>> pdf files {len(pdfFiles)} documents")
     documents = PdfEngine.return_raw_file(pdfFiles)
     print(f"------->>>>>> pdf generate {len(documents)} documents")
 
     return documents
-# 未使用
-def test_langchain_chunking(docs_path, splitters, chunk_size, chunk_overlap, drop_collection=True):
-    loader = UnstructuredMarkdownLoader(DocumentPath)
-    docs = loader.load()
-    md_file = docs[0].page_content
-    markdown_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=splitters)
-    md_header_splits = markdown_splitter.split_text(md_file)
-    print(f"------->>>>>> generate {len(md_header_splits)} documents")
 
-    # Define our text splitter
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-    all_splits = text_splitter.split_documents(md_header_splits)
 
-    test_collection_name = f"EngineeringNotionDoc_{chunk_size}_{chunk_overlap}"
-    vectordb = Milvus.from_documents(documents=all_splits,
-                                     embedding=emb,
-                                     connection_args={"uri": "",
-                                                      "token": ""},
-                                     collection_name=test_collection_name)
-
-    metadata_fields_info = [
-        AttributeInfo(
-            name="Section",
-            description="Part of the document that the text comes from",
-            type="string or list[string]"
-        ),
-    ]
-    document_content_description = "Major sections of the document"
-    llm = QianfanLLMEndpoint(temperature=0)
-    retriever = SelfQueryRetriever.from_llm(llm, vectordb, document_content_description, metadata_fields_info,
-                                            verbose=True)
-
-    res = retriever.get_relevant_documents("What makes a distinguished engineer?")
-    print(f"""Responses from chunking strategy:
-        {chunk_size}, {chunk_overlap}""")
-    for doc in res:
-        print(doc)
-    # cleanup
-    # this is just for rough cleanup, we can improve this# lots of user considerations to understand for real experimentation use cases thoughif drop_collection:
-    # connections.connect(uri=zilliz_uri, token=zilliz_token)
-    # utility.drop_collection(test_collection_name)
 

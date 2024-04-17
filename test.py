@@ -1,7 +1,11 @@
 import os
-os.chdir('DataKiller')
 from core.qa_chain_qianfan import DocChatter
 
+# LangSmith追踪
+os.environ["LANGCHAIN_TRACING_V2"] = "true"  
+os.environ["LANGCHAIN_PROJECT"] = "DateKiller_1.0"  
+os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"  
+os.environ["LANGCHAIN_API_KEY"] = "ls__4e4954be6c504e5f8bd17bf19e0a8396"  # 更新为您的API密钥
 
 query_1 = '''
 证券交易所问询函的结构为总分结构：先总述一个"大的问询事项"，再分述"需要公司说明的监管问题"。在每个"监管问题"中，先总述"监管问题的背景"，再分述每个问题"需要问询公司的具体方面"
@@ -40,10 +44,9 @@ query_2 = '''
 
 '''
 
-# txt = DocChatter.GptRagQuery(top_n=5,query=query)   
+
 df = DocChatter.StructualInqueryLetter(query=query_1)
 df_1 = DocChatter.TaggingInqery(query=query_2,df_context=df)
-
-df_1.to_excel('test.xlsx')
+df.to_excel('test.xlsx')
 
 

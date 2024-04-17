@@ -6,12 +6,15 @@
 - core_chain.py
   - summarize的chain，后续会改写
 - qa_chain_qianfan.py
-  - GptRagQuery
-  - VectorQuery方法仅能返回检索到的向量
+  - DocChatter
+    - GptRagQuery
+    - StructualInqueryLetter
+    - TaggingInqery
+    - VectorQuery
 - pdf_splitter.py
 - vector_db_qianfan.py
 
-#### 部署命令
+#### 部署命令(暂不支持)
 ```shell
 # https://python.langchain.com/docs/integrations/toolkits/openapi#lets-see-some-examples
 
