@@ -3,7 +3,6 @@ from langchain.prompts import PromptTemplate
 from langchain.prompts import FewShotPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from core.model_config import EMB
-from prompt.examples.behavior_risk_points import BEHAVIOR_RISK_POINTS_EXAMPLES
 from langchain_core.example_selectors import SemanticSimilarityExampleSelector
 from vector_store.Milvus import get_vector_store
 

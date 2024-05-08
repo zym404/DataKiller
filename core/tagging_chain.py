@@ -14,7 +14,7 @@ from vector_store.tagging_examples_initialize import (
 from core.output_format_conversion import Json2Dict
 from prompt.tagging import TAGGING_PROMPT
 from spiliter.excel_spliter import excel_splitter
-from spiliter.pdf_splitter import PdfEngine
+
 from vector_store.Milvus import init_vector_store_from_texts,get_vector_store
 from spiliter.excel_spliter import excel_splitter
 

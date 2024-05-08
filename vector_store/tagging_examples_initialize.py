@@ -5,7 +5,7 @@ from typing import Dict
 from langchain_core.vectorstores import VectorStore
 from vector_store.Milvus import init_vector_store_from_texts,get_vector_store
 from spiliter.excel_spliter import excel_splitter
-from spiliter.csv_spiliter import csv_splitter
+
 
 def _get_all_xlsx_files(source_dir='./docs/标签规则/例子'):
     xlsx_files = []
