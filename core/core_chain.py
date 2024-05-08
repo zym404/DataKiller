@@ -3,8 +3,8 @@ from langchain.callbacks.base import BaseCallbackManager
 from langchain.chains.combine_documents.base import BaseCombineDocumentsChain
 from typing import Any, Optional
 from langchain.chains.question_answering import load_qa_chain
-from core.prompt import QUESTION_PROMPT, COMBINE_PROMPT, LABEL_PROMPT, STRUCTUAL_PROMPT
-from core.prompt import label_paser
+from core.prompt import QUESTION_PROMPT, COMBINE_PROMPT, TAGGING_PROMPT, STRUCTUAL_PROMPT
+from core.prompt import tagging_paser
 
 
 
@@ -35,6 +35,6 @@ def load_chain(
         )
     elif chain_type == "label":
         # 根据对应的字段打标签
-        return LABEL_PROMPT | llm | label_paser
+        return TAGGING_PROMPT | llm | tagging_paser
 
 
