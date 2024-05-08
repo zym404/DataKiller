@@ -8,7 +8,7 @@ from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 os.environ["QIANFAN_AK"] = "gKMOfVu47gp3BMMUJb8EPpfG"
 os.environ["QIANFAN_SK"] = "1G5RdeXf9RdIjj6bzeF4A1udqT8jTEPl"
 
-os.environ["OPENAI_API_KEY"] = "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"
+
 
 # LLM = ChatOpenAI(model='gpt-4-turbo',temperature=0.0)
 
