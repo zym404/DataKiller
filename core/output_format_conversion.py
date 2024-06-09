@@ -27,6 +27,10 @@ def Json2DataFrame_InquryLetter(txt:str) -> pd.DataFrame:
         return df
 
 def Json2Dict(txt:str) -> dict:
-    matches = re.findall(r'```json(.*?)```',txt , re.DOTALL)[0].replace('\n','')
-    json_script = json.loads(matches)
+    if re.findall(r'```json(.*?)```',txt , re.DOTALL):
+        matches = re.findall(r'```json(.*?)```',txt , re.DOTALL)[0].replace('\n','')
+        json_script = json.loads(matches)
+    elif txt[0]=='{' and txt[-1]=='}':
+        json_script = json.loads(txt)
     return json_script
+
